@@ -46,5 +46,5 @@ else
 	echo -n "Memory OK: "
 fi
 
-echo "$PERCENT_USED% Used | percent_used=$PERCENT_USED, total=$TOTAL, available=$AVAIL"
+echo "$PERCENT_USED% Used | percent_used=$PERCENT_USED% total=$TOTAL available=$AVAIL"
 exit $RET
