@@ -1,0 +1,50 @@
+#!/bin/bash
+
+if [ $# -ne 2 ]; then
+	cat << EOF
+Check memory usage. Values: used%
+USAGE: $0 <WARN> <CRIT>
+Note: USED=TOTAL-AVAILABLE
+EOF
+	exit 3
+fi
+
+WARN=$1
+CRIT=$2
+
+if ! which free > /dev/null; then
+	echo UNKNOWN: free command not found.
+	exit 3
+fi
+
+TOTAL=0
+USED=0
+AVAIL=0
+
+while read line; do
+	ARR=( $line )
+	[ ${ARR[0]} != "Mem:" ] && continue
+
+	TOTAL=${ARR[1]}
+	AVAIL=${ARR[6]}
+	USED=$(($TOTAL-$AVAIL))
+
+	break
+done <<< $(free | tail -n -2)
+
+PERCENT_USED=$(echo "scale=2; $USED / $TOTAL * 100 / 1" | bc -l)
+PERCENT_USED=${PERCENT_USED%.*}
+
+if [ $PERCENT_USED -ge $CRIT ]; then
+	RET=2
+	echo -n "Memory CRITICAL: "
+elif [ $PERCENT_USED -ge $WARN ]; then
+	RET=1
+	echo -n "Memory WARNING: "
+else
+	RET=0
+	echo -n "Memory OK: "
+fi
+
+echo "$PERCENT_USED% Used | percent_used=$PERCENT_USED, total=$TOTAL, available=$AVAIL"
+exit $RET
