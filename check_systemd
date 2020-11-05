@@ -1,0 +1,25 @@
+#!/bin/bash
+
+# USAGE:
+# check_systemd [UNIT ...]
+
+FAILED=()
+
+if ! systemctl is-system-running > /dev/null; then
+	echo systemd CRITICAL: System state degraded.
+	exit 2
+fi
+
+for unit in "$@"; do
+	if ! systemctl is-active "$unit" > /dev/null; then
+		FAILED+=("$unit")
+	fi
+done
+
+if [ ${#FAILED[@]} -gt 0 ]; then
+	echo "systemd CRITICAL: failed units: ${FAILED[@]}"
+	exit 2
+fi
+
+echo "systemd OK: $# units checked"
+exit 0
