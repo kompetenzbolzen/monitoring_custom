@@ -1,0 +1,32 @@
+#!/bin/bash
+
+# °C
+WARN=75
+CRIT=85
+
+PERFDATA="|"
+IS_WARN="false"
+IS_CRIT="false"
+
+TEXT=(OK WARNING CRITICAL UNKOWN)
+LEVEL=0
+
+DATA=( $(sensors | \
+	grep "^Core" | \
+	sed -n "s|^Core\s[0-9]\+:\s\++\([0-9]\+\.[0-9]\+\)°C.*$|\1|p" ) )
+
+for (( i=0; i<${#DATA[@]}; i++ )); do
+	(( $(echo "${DATA[$i]} > $WARN" | bc -l ) )) && IS_WARN="true"
+	(( $(echo "${DATA[$i]} > $CRIT" | bc -l ) )) && IS_CRIT="true"
+	PERFDATA+="core_$i=${DATA[$i]},"
+done
+
+echo $IS_CRIT $IS_WARN
+
+[ $IS_WARN = true ] && LEVEL=1
+[ $IS_CRIT = true ] && LEVEL=2
+[ ${#DATA[@]} -eq 0 ] && LEVEL=3
+
+echo "sensors ${TEXT[$LEVEL]}$PERFDATA"
+
+exit $LEVEL
