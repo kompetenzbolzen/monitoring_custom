@@ -18,7 +18,7 @@ DATA=( $(sensors | \
 for (( i=0; i<${#DATA[@]}; i++ )); do
 	(( $(echo "${DATA[$i]} > $WARN" | bc -l ) )) && IS_WARN="true"
 	(( $(echo "${DATA[$i]} > $CRIT" | bc -l ) )) && IS_CRIT="true"
-	PERFDATA+="core_$i=${DATA[$i]},"
+	PERFDATA+=" core_$i=${DATA[$i]}C"
 done
 
 [ $IS_WARN = true ] && LEVEL=1
