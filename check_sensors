@@ -21,8 +21,6 @@ for (( i=0; i<${#DATA[@]}; i++ )); do
 	PERFDATA+="core_$i=${DATA[$i]},"
 done
 
-echo $IS_CRIT $IS_WARN
-
 [ $IS_WARN = true ] && LEVEL=1
 [ $IS_CRIT = true ] && LEVEL=2
 [ ${#DATA[@]} -eq 0 ] && LEVEL=3
