@@ -32,13 +32,14 @@ while read line; do
 	break
 done <<< $(free | tail -n -2)
 
-PERCENT_USED=$(echo "scale=2; $USED / $TOTAL * 100 / 1" | bc -l)
-PERCENT_USED=${PERCENT_USED%.*}
+PERCENT_USED=$(echo "scale=4; $USED / $TOTAL * 100 " | bc -l)
+PERCENT_USED=${PERCENT_USED%00}
+PERCENT_USED_INT=${PERCENT_USED%.*}
 
-if [ $PERCENT_USED -ge $CRIT ]; then
+if [ $PERCENT_USED_INT -ge $CRIT ]; then
 	RET=2
 	echo -n "Memory CRITICAL: "
-elif [ $PERCENT_USED -ge $WARN ]; then
+elif [ $PERCENT_USED_INT -ge $WARN ]; then
 	RET=1
 	echo -n "Memory WARNING: "
 else
