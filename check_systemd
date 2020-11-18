@@ -16,10 +16,10 @@ if [ ${#FAILED[@]} -gt 0 ]; then
 	exit 2
 fi
 
-if ! systemctl is-system-running > /dev/null; then
-	echo systemd WARNING: System state degraded.
-	exit 1
-fi
+#if ! systemctl is-system-running > /dev/null; then
+#	echo systemd WARNING: System state degraded.
+#	exit 1
+#fi
 
 echo "systemd OK: $# units checked"
 exit 0
