@@ -1,0 +1,75 @@
+#!/bin/bash
+
+#-I lanplus -U <User> -P <PW> -L User -H <Host>
+
+2>&2 > /dev/null which ipmitool || exit 3
+
+# also replaces na with ""
+function strip_string() {
+	local RETURN=""
+	[ "$1" = "na" ] || RETURN="$@"
+	echo "$RETURN"
+}
+
+function float_compare() {
+	[ $# -ne 2 ] && return 1
+
+	(( $(echo "$1 > $2" | bc -l ) )) && return 0
+	return 1
+}
+
+WARN=()
+CRIT=()
+
+PERFDATA=()
+
+DATA="$(ipmitool $@ sensor list; exit $?)"
+RET=$?
+
+if [ $RET -ne 0 ]; then
+	echo UNKOWN: IPMI error
+	echo "$DATA"
+	exit 3
+fi
+
+# Lower Non-Recoverable : na
+# Lower Critical        : 5.000
+# Lower Non-Critical    : 10.000
+# Upper Non-Critical    : 61.000
+# Upper Critical        : 66.000
+# Upper Non-Recoverable : na
+while IFS='|' read sensor value unit state lnr lc lw uw uc unr ; do
+	val="$( strip_string $value )"
+	[ -z $val ] && continue
+
+	unt="$( strip_string $unit )"
+	[ -z "$unt" -o "$unt" = "discrete" ] && continue
+
+	snsr="$( strip_string $sensor )"
+
+	low_warn="$( strip_string $lw )"
+	low_crit="$( strip_string $lc )"
+	hi_warn="$(  strip_string $uw )"
+	hi_crit="$(  strip_string $uc )"
+
+	if float_compare $val $hi_crit || float_compare $low_crit $val; then
+		CRIT+=("$snsr")
+	elif float_compare $val $hi_warn || float_compare $low_warn $val; then
+		WARN+=("$snsr")
+	fi
+
+	PERFDATA+=("$snsr=$val;$low_warn${hi_warn:+:$hi_warn};$low_crit${hi_crit:+:$hi_crit}")
+done <<< "$DATA"
+
+if [ ${#WARN[@]} -gt 0 ]; then
+	echo -n "IPMI WARNING: ${WARN[@]}"
+	RET=1
+elif [ ${#CRIT[@]} -gt 0 ]; then
+	echo -n "IPMI CRITICAL: ${CRIT[@]}"
+	RET=2
+else
+	echo -n "IPMI OK"
+	RET=0
+fi
+
+echo "|${PERFDATA[@]}"
