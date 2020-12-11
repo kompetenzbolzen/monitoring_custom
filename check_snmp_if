@@ -1,0 +1,52 @@
+#!/bin/bash
+
+RESULTS=(OK WARNING CRITICAL UNKNOWN)
+
+perror() {
+	echo "$@"
+} >&2
+
+fail() {
+	local RET=$1
+	shift
+	perror "$@"
+	exit $RET
+}
+
+result() {
+	local RET=$1
+	shift
+	echo "SNMP IF ${RESULTS[$RET]}: $@"
+	exit $RET
+}
+
+while getopts ":H:c:i:" opt; do
+	case $opt in
+		H)
+			HOSTNAME="$OPTARG"
+			;;
+		c)
+			COMMUNITY="$OPTARG"
+			;;
+		i)
+			INTERFACE="$OPTARG"
+			;;
+		:)
+			fail 3 "$OPTARG requires Argument."
+			;;
+		*)
+			fail 3 "Invalid option $OPTARG"
+	esac
+done
+
+SNMPWALK_RESULT=$(snmpwalk -c "$COMMUNITY" -v 2c "$HOSTNAME" ifOperStatus.$INTERFACE; exit $?)
+RET=$?
+
+[ $RET -ne 0 ] && result 3 "snmwalk failed with code $RET: $SNMPWALK_RESULT"
+[ -z "$SNMPWALK_RESULT" ] && result 2 "No matching entry found."
+
+IFS='=' LINE=($SNMPWALK_RESULT)
+
+sed -n 's/.*=\(.*\)/\1/p' <<< "$SNMPWALK_RESULT" | grep "up" && result 0 "Interface $INTERFACE is up."
+
+result 2 "Interface $INTERFACE is not up: $SNMPWALK_RESULT"
