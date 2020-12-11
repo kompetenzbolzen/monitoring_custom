@@ -39,7 +39,7 @@ while getopts ":H:c:i:" opt; do
 	esac
 done
 
-SNMPWALK_RESULT=$(snmpwalk -c "$COMMUNITY" -v 2c "$HOSTNAME" ifOperStatus.$INTERFACE; exit $?)
+SNMPWALK_RESULT=$(snmpwalk -c "$COMMUNITY" -v 2c "$HOSTNAME" 1.3.6.1.2.1.2.2.1.8.$INTERFACE; exit $?)
 RET=$?
 
 [ $RET -ne 0 ] && result 3 "snmpwalk failed with code $RET: $SNMPWALK_RESULT"
