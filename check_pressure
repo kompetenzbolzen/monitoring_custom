@@ -1,0 +1,72 @@
+#!/bin/bash
+
+#USAGE: check_pressure cpu|io|memory some|full [--10 w,c] [--60 w,c] [--300 w,c]
+
+RESULTS=(OK WARNING CRITICAL UNKNOWN)
+
+fail() {
+	local RET=$1
+	shift
+	echo "$@"
+	exit $RET
+}
+
+float_compare() {
+	[ $# -ne 2 ] && return 1
+
+	(( $(echo "$1 > $2" | bc -l ) )) && return 0
+	return 1
+}
+
+# pressure is a relatively new feature. Ignore if not present.
+[ ! -e "/proc/pressure" ] && fail 0 pressure API not present
+
+RESOURCE="$1"
+[ ! -e "/proc/pressure/$RESOURCE" ] && fail 3 invalid resource \""$RESOURCE"\"
+shift
+
+( echo "$1" | grep "^some$\|^full$" > /dev/null ) \
+	|| fail 3 \""$1"\" invalid. must be \"some\" or \"full\"
+MODE="$1"
+
+while shift; do
+	case "$1" in
+		"--10")
+			VAL[0]="$2"
+			shift;;
+		"--60")
+			VAL[1]="$2"
+			shift;;
+		"--300")
+			VAL[2]="$2"
+			shift;;
+		"");;
+		*)
+			fail 3 "Unkown argument: \"$1\""
+			;;
+	esac
+done
+
+[ "${#VAL[@]}" -eq 0 ] && fail 3 "At least one set of threshholds must be set"
+
+read MD avg10 avg60 avg300 catch < <(grep "$MODE" "/proc/pressure/$RESOURCE") \
+	|| fail 3 "Parsing of file failed. Does $RESOURCE support $MODE?"
+
+AVG=( "$avg10" "$avg60" "$avg300" )
+WARNING_OFFENDERS=()
+CRITICAL_OFFENDERS=()
+
+for i in 0 1 2; do
+	[ -z "${VAL[$i]}" ] && continue
+	IFS=',' read WARN CRIT <<< "${VAL[$i]}"
+	IFS='=' read KEY VALUE <<< "${AVG[$i]}"
+
+	float_compare "$VALUE" "$CRIT" && CRITICAL_OFFENDERS+=("$KEY($VALUE)=C") && continue
+	float_compare "$VALUE" "$WARN" && WARNING_OFFENDERS+=("$KEY($VALUE)=W")
+done
+
+WORST=0
+[ ${#WARNING_OFFENDERS[@]} -gt 0 ] && WORST=1
+[ ${#CRITICAL_OFFENDERS[@]} -gt 0 ] && WORST=2
+
+echo "PRESSURE ${RESULTS[$WORST]}: ${CRITICAL_OFFENDERS[@]} ${WARNING_OFFENDERS[@]} | ${AVG[@]}"
