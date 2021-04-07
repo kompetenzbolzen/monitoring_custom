@@ -1,0 +1,27 @@
+#!/bin/bash
+
+# Usage: check_jenkins_job <jenkins-url> <view> <job> <curl opts ...>
+
+if [ "$#" -lt 3 ]; then
+	echo "Usage: $0 <jenkins-url> <view> <job> <curl opts ...>"
+	exit 3
+fi
+
+JENKINS_URL=$1
+VIEW=$2
+JOB=$3
+
+shift 3
+
+CURL_OUT=$( curl -s $@ $JENKINS_URL/view/$VIEW/job/$JOB/lastBuild/api/json )
+
+RESULT=$( jq -r .result <<< $CURL_OUT )
+ID=$( jq -r .displayName <<< $CURL_OUT )
+
+if [ "$RESULT" = "SUCCESS" ]; then
+	echo JOB OK: $JOB $ID succeeded
+	exit 0
+fi
+
+echo JOB CRITICAL: $JOB $ID failed
+exit 2
