@@ -1,5 +1,8 @@
 #!/bin/bash
 
+# https://ixnfo.com/en/snmp-oid-and-mib-for-interfaces.html
+# https://oidref.com/1.3.6.1.2.1.2.2.1
+
 RESULTS=(OK WARNING CRITICAL UNKNOWN)
 
 perror() {
@@ -16,9 +19,32 @@ fail() {
 result() {
 	local RET=$1
 	shift
-	echo "SNMP IF ${RESULTS[$RET]}: $@"
+	echo -n "SNMP IF ${RESULTS[$RET]}: $@"
+	perfdata
 	exit $RET
 }
+
+walk() {
+	snmpwalk -c "$COMMUNITY" -v 2c "$HOSTNAME" "1.3.6.1.2.1.2.2.1.$1.$INTERFACE"
+	return $?
+}
+
+extract_val()  {
+	sed -n 's/.*=\(.*\)/\1/p' | sed -n 's/.*:\s*\(.*\)/\1/p'
+}
+
+perfdata() {
+	[ $GENPERFDATA -eq 0 ] && return
+
+	echo -n "| "
+	echo -n "in=$INOCTETS "
+	echo -n "out=$OUTOCTETS "
+	echo -n "in_err=$INERRORS "
+	echo -n "out_err=$OUTERRORS "
+	echo
+}
+
+GENPERFDATA=0
 
 while getopts ":H:c:i:" opt; do
 	case $opt in
@@ -45,7 +71,13 @@ RET=$?
 [ $RET -ne 0 ] && result 3 "snmpwalk failed with code $RET: $SNMPWALK_RESULT"
 [ -z "$SNMPWALK_RESULT" ] && result 2 "No matching entry found."
 
-IFS='=' LINE=($SNMPWALK_RESULT)
+GENPERFDATA=1
+
+INOCTETS=$(walk 10 | extract_val)
+OUTOCTETS=$(walk 16 | extract_val)
+
+INERRORS=$(walk 14 | extract_val)
+OUTERRORS=$(walk 20 | extract_val)
 
 sed -n 's/.*=\(.*\)/\1/p' <<< "$SNMPWALK_RESULT" | grep "up\|1" > /dev/null && result 0 "Interface $INTERFACE is up."
 
