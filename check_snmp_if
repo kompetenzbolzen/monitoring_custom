@@ -2,8 +2,17 @@
 
 # https://ixnfo.com/en/snmp-oid-and-mib-for-interfaces.html
 # https://oidref.com/1.3.6.1.2.1.2.2.1
+# https://bestmonitoringtools.com/mibdb/mibdb_search.php?mib=IF-MIB
 
 RESULTS=(OK WARNING CRITICAL UNKNOWN)
+
+readonly MIB_IFOPERSTATUS="1.3.6.1.2.1.2.2.1.8"
+readonly MIB_ALIAS="1.3.6.1.2.1.31.1.1.1.18"
+readonly MIB_NAME="1.3.6.1.2.1.31.1.1.1.1"
+readonly MIB_IN="1.3.6.1.2.1.31.1.1.1.6"
+readonly MIB_OUT="1.3.6.1.2.1.31.1.1.1.10"
+readonly MIB_ERR_IN="1.3.6.1.2.1.2.2.1.14"
+readonly MIB_ERR_OUT="1.3.6.1.2.1.2.2.1.20"
 
 perror() {
 	echo "$@"
@@ -25,7 +34,7 @@ result() {
 }
 
 walk() {
-	snmpwalk -c "$COMMUNITY" -v 2c "$HOSTNAME" "1.3.6.1.2.1.2.2.1.$1.$INTERFACE"
+	snmpwalk $AUTH "$HOSTNAME" "$1"
 	return $?
 }
 
@@ -46,7 +55,7 @@ perfdata() {
 
 GENPERFDATA=0
 
-while getopts ":H:c:i:" opt; do
+while getopts ":H:c:i:u:p:" opt; do
 	case $opt in
 		H)
 			HOSTNAME="$OPTARG"
@@ -57,6 +66,12 @@ while getopts ":H:c:i:" opt; do
 		i)
 			INTERFACE="$OPTARG"
 			;;
+		u)
+			SNMP_USER="$OPTARG"
+			;;
+		p)
+			SNMP_PW="$OPTARG"
+			;;
 		:)
 			fail 3 "$OPTARG requires Argument."
 			;;
@@ -65,7 +80,16 @@ while getopts ":H:c:i:" opt; do
 	esac
 done
 
-SNMPWALK_RESULT=$(snmpwalk -c "$COMMUNITY" -v 2c "$HOSTNAME" 1.3.6.1.2.1.2.2.1.8.$INTERFACE; exit $?)
+AUTH=""
+if [ -n "$COMMUNITY" ]; then
+	AUTH="-c $COMMUNITY -v 2c"
+elif [ -n "$SNMP_USER" ] && [ -n "$SNMP_PW" ]; then
+	AUTH="-v 3 -u $SNMP_USER -A $SNMP_PW -l authNoPriv"
+else
+	result 3 "No or insufficient authentication info provided"
+fi
+
+SNMPWALK_RESULT=$(snmpwalk $AUTH "$HOSTNAME" "$MIB_IFOPERSTATUS.$INTERFACE"; exit $?)
 RET=$?
 
 [ $RET -ne 0 ] && result 3 "snmpwalk failed with code $RET: $SNMPWALK_RESULT"
@@ -73,12 +97,19 @@ RET=$?
 
 GENPERFDATA=1
 
-INOCTETS=$(walk 10 | extract_val)
-OUTOCTETS=$(walk 16 | extract_val)
+NAME=$(walk "$MIB_NAME.$INTERFACE" | extract_val)
+ALIAS=$(walk "$MIB_ALIAS.$INTERFACE" | extract_val)
 
-INERRORS=$(walk 14 | extract_val)
-OUTERRORS=$(walk 20 | extract_val)
+COMPLETE_NAME="$NAME"
+if [ -n "$ALIAS" ]; then COMPLETE_NAME+=" ($ALIAS)"; fi
 
-sed -n 's/.*=\(.*\)/\1/p' <<< "$SNMPWALK_RESULT" | grep "up\|1" > /dev/null && result 0 "Interface $INTERFACE is up."
+INOCTETS=$(walk "$MIB_IN.$INTERFACE" | extract_val)
+OUTOCTETS=$(walk "$MIB_OUT.$INTERFACE" | extract_val)
 
-result 2 "Interface $INTERFACE is not up: $SNMPWALK_RESULT"
+INERRORS=$(walk "$MIB_ERR_IN.$INTERFACE" | extract_val)
+OUTERRORS=$(walk "$MIB_ERR_OUT.$INTERFACE" | extract_val)
+
+extract_val <<< "$SNMPWALK_RESULT" | grep "up\|1" > /dev/null && result 0 "$COMPLETE_NAME is up."
+
+
+result 2 "$COMPLETE_NAME $INTERFACE is not up: $SNMPWALK_RESULT"
