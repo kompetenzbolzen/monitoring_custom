@@ -39,7 +39,7 @@ walk() {
 }
 
 extract_val()  {
-	sed -n 's/.*=\(.*\)/\1/p' | sed -n 's/.*:\s*\(.*\)/\1/p'
+	sed -n 's/.*=\(.*\)/\1/p' | sed -n 's/.*:\s*\(.*\)/\1/p'  | tr -d "\"'"
 }
 
 perfdata() {
@@ -89,7 +89,7 @@ else
 	result 3 "No or insufficient authentication info provided"
 fi
 
-SNMPWALK_RESULT=$(snmpwalk $AUTH "$HOSTNAME" "$MIB_IFOPERSTATUS.$INTERFACE"; exit $?)
+SNMPWALK_RESULT=$(walk "$MIB_IFOPERSTATUS.$INTERFACE"; exit $?)
 RET=$?
 
 [ $RET -ne 0 ] && result 3 "snmpwalk failed with code $RET: $SNMPWALK_RESULT"
@@ -110,6 +110,5 @@ INERRORS=$(walk "$MIB_ERR_IN.$INTERFACE" | extract_val)
 OUTERRORS=$(walk "$MIB_ERR_OUT.$INTERFACE" | extract_val)
 
 extract_val <<< "$SNMPWALK_RESULT" | grep "up\|1" > /dev/null && result 0 "$COMPLETE_NAME is up."
-
 
 result 2 "$COMPLETE_NAME $INTERFACE is not up: $SNMPWALK_RESULT"
