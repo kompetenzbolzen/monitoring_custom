@@ -5,5 +5,5 @@ build:
 
 install: build
 	@mkdir -p $(INSTDIR)
-	@cp check_* $(INSTDIR)
+	@cp plugins/* $(INSTDIR)
 
