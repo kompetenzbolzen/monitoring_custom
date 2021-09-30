@@ -15,15 +15,18 @@ USER=$4
 
 shift 5
 
-CURL_OUT=$( curl -s --basic -u "$USER:$PASS" $@ $JENKINS_URL/view/$VIEW/job/$JOB/lastBuild/api/json )
+CURL_OUT=$( curl -s --basic -u "$USER:$PASS" "$@" "$JENKINS_URL/view/$VIEW/job/$JOB/lastBuild/api/json" )
 
-RESULT=$( jq -r .result <<< $CURL_OUT )
-ID=$( jq -r .displayName <<< $CURL_OUT )
+RESULT=$( jq -r .result <<< "$CURL_OUT" )
+RUNNING=$( jq -r .building <<< "$CURL_OUT" )
+ID=$( jq -r .displayName <<< "$CURL_OUT" )
 
 if [ "$RESULT" = "SUCCESS" ]; then
-	echo JOB OK: $JOB $ID succeeded
+	echo "JOB OK: $JOB $ID succeeded"
 	exit 0
+elif [ "$RUNNING" = "true" ]; then
+	echo "JOB OK: $JOB $ID is running"
 fi
 
-echo JOB CRITICAL: $JOB $ID failed
+echo "JOB CRITICAL: $JOB $ID failed"
 exit 2
