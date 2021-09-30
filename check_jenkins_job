@@ -10,10 +10,12 @@ fi
 JENKINS_URL=$1
 VIEW=$2
 JOB=$3
+PASS=$5
+USER=$4
 
-shift 3
+shift 5
 
-CURL_OUT=$( curl -s $@ $JENKINS_URL/view/$VIEW/job/$JOB/lastBuild/api/json )
+CURL_OUT=$( curl -s --basic -u "$USER:$PASS" $@ $JENKINS_URL/view/$VIEW/job/$JOB/lastBuild/api/json )
 
 RESULT=$( jq -r .result <<< $CURL_OUT )
 ID=$( jq -r .displayName <<< $CURL_OUT )
