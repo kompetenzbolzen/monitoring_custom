@@ -26,6 +26,7 @@ if [ "$RESULT" = "SUCCESS" ]; then
 	exit 0
 elif [ "$RUNNING" = "true" ]; then
 	echo "JOB OK: $JOB $ID is running"
+	exit 0
 fi
 
 echo "JOB CRITICAL: $JOB $ID failed"
