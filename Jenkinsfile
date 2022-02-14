@@ -4,7 +4,7 @@ pipeline {
 	stages {
 		stage('Build Plugins') {
 			steps {
-				sh 'mkdir -p out/ && INSTDIR=out/ make install'
+				sh 'mkdir -p out/ && make INSTDIR=out install'
 			}
 		}
 	}
