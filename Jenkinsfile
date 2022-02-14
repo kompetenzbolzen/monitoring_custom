@@ -5,12 +5,13 @@ pipeline {
 		stage('Build Plugins') {
 			steps {
 				sh 'mkdir -p out/ && make INSTDIR=out install'
+				sh 'tar -C out -czvf plugins.tar.gz .'
 			}
 		}
 	}
 	post {
 		always {
-			archiveArtifacts artifacts: 'out/*', fingerprint: false
+			archiveArtifacts artifacts: 'plugins.tar.gz', fingerprint: false
 		}
 	}
 }
