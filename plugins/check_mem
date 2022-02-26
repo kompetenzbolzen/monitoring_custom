@@ -34,7 +34,7 @@ done <<< $(free | tail -n -2)
 
 PERCENT_USED=$(echo "scale=4; $USED / $TOTAL * 100 " | bc -l)
 PERCENT_USED=${PERCENT_USED%00}
-PERCENT_USED_INT=${PERCENT_USED%.*}
+PERCENT_USED_INT=0${PERCENT_USED%.*}
 
 if [ $PERCENT_USED_INT -ge $CRIT ]; then
 	RET=2
