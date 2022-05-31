@@ -1,36 +1,3 @@
-# monitoring-custom
-
-my collection of Nagios-compatible check-plugins I use in my Icinga2 environment.
-
-## Documentation
-
-Basic documentation is provided in comments and/or as helptexts
-
-## building
-
-```
-# Building the plugins (currently not needed, bc all are scripts)
-make build
-
-# Installing
-make install
-# Install path defaults to /usr/share/monitoring-plugins. Can be set with:
-make INSTDIR=/path/to/install install
-```
-
-## using with Icinga2
-
-some plugins come with Icinga2 command configuration in `commands.conf`
-
-```
-const CustomPluginDir = "path/to/plugins/"
-include "path/to/commands.conf"
-```
-
-## License
-
-
-```
 MIT License
 
 Copyright (c) 2022 Jonas Gunz <himself at jonasgunz dot de>
@@ -52,4 +19,3 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
-```
