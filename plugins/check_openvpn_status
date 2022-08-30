@@ -1,0 +1,119 @@
+#!/usr/bin/env python3
+
+# Check openvpn-status.log
+# needs status-version 3 set in ovpn config!
+
+import json
+import datetime
+import dateutil.parser
+import sys
+import argparse
+
+class Status:
+    OK = 0
+    WARNING = 1
+    CRITICAL = 2
+    UNKNOWN = 3
+
+    @staticmethod
+    def toString(status):
+        return (['OK', 'WARNING', 'CRITICAL', 'UNKNOWN'])[status]
+
+def print_perfdata(perfdata):
+    print('|' ,end='')
+    for d in perfdata:
+        print(f'{d}={perfdata[d]}', end=' ')
+
+def set_status(status):
+    if status > STATUS:
+        return status
+    return STATUS
+
+parser = argparse.ArgumentParser(description='check openvpn-status.log')
+parser.add_argument(dest='logfile')
+parser.add_argument('-c', dest='max_conns', action='store', type=int, default=0)
+parser.add_argument('-u', dest='max_conns_per_user', action='store', type=int, default=0)
+parser.add_argument('-t', dest='traffic', action='store_true')
+
+args=parser.parse_args()
+
+STATUS = Status.OK
+STATUS_STRINGS = []
+
+FILE = args.logfile
+
+DATA={}
+PERFDATA={}
+
+file_lines=[]
+
+with open(FILE, 'r') as f:
+    file_lines = f.readlines()
+
+for l in file_lines:
+    line_elements = l.split('\t')
+
+    title = line_elements[0].strip()
+
+    if title not in DATA:
+        DATA[title] = []
+
+    DATA[title].append(list(map(lambda x: x.strip(), line_elements[1:])))
+
+now = datetime.datetime.now()
+status_time = dateutil.parser.parse(DATA['TIME'][0][0])
+status_age = int((now-status_time).total_seconds())
+
+PERFDATA['statusage'] = status_age
+if status_age > 120:
+    STATUS = set_status(Status.UNKNOWN)
+    STATUS_STRINGS.append(f'Statusfile is {status_age} seconds old. This should be no more than 60.')
+
+
+if args.max_conns > 0:
+    clients = ', '.join(list(map(lambda x: x[0], DATA['CLIENT_LIST'])))
+    clients_cnt = len(DATA['CLIENT_LIST'])
+
+    if clients_cnt >= args.max_conns:
+        STATUS = set_status(Status.CRITICAL)
+    elif clients_cnt >= (args.max_conns * 0.9):
+        STATUS = set_status(Status.WARNING)
+
+    PERFDATA['clients_cnt'] = f'{clients_cnt};{int(args.max_conns*0.9)};{args.max_conns}'
+    STATUS_STRINGS.append(f'{clients_cnt} clients logged in ({clients})')
+
+
+if args.max_conns_per_user > 0:
+    user_cnts = {}
+
+    for u in DATA['CLIENT_LIST']:
+        uname = u[8]
+        if uname in user_cnts:
+            user_cnts[uname] += 1
+        else:
+            user_cnts[uname] = 1
+
+    for u in user_cnts:
+        if user_cnts[u] >= args.max_conns_per_user:
+            STATUS = set_status(Status.CRITICAL)
+        if user_cnts[u] >= (args.max_conns_per_user * 0.8):
+            STATUS = set_status(Status.WARNING)
+            STATUS_STRINGS.append(f'{u} is logged in {user_cnts[u]} times')
+            PERFDATA[f'user_{u}'] = f'{user_cnts[u]};{int(args.max_conns_per_user * 0.8)};{int(args.max_conns_per_user)}'
+
+if args.traffic:
+    recv_cnt = 0
+    sent_cnt = 0
+
+    for u in DATA['CLIENT_LIST']:
+        recv_cnt += int(u[4])
+        sent_cnt += int(u[5])
+
+    PERFDATA['recieved_bytes'] = f'{recv_cnt}B'
+    PERFDATA['sent_bytes'] = f'{sent_cnt}B'
+
+print(f'OpenVPN {Status.toString(STATUS)}')
+for s in STATUS_STRINGS:
+    print(s)
+
+print_perfdata(PERFDATA)
