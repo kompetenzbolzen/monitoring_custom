@@ -69,6 +69,8 @@ if status_age > 120:
     STATUS = set_status(Status.UNKNOWN)
     STATUS_STRINGS.append(f'Statusfile is {status_age} seconds old. This should be no more than 60.')
 
+if 'CLIENT_LIST' not in DATA:
+    DATA['CLIENT_LIST'] = []
 
 if args.max_conns > 0:
     clients = ', '.join(list(map(lambda x: x[0], DATA['CLIENT_LIST'])))
