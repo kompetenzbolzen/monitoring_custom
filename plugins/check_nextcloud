@@ -1,0 +1,49 @@
+#!/usr/bin/env python3
+
+import requests
+
+# Aktive Users | Warning | Critical
+# App Updates
+# opcache vll Prozent mit Max | Warning | Critical
+
+class Monoid:
+    def __init__(self, null, typeify, op):
+        self.null = null
+        self.typeify = typeify
+        self.op = op
+
+class Check:
+    def __init__(self, status: int, description: str, data: str):
+        self.status = status
+        self.description = description
+        self.data = data
+
+def check_cache_(data_json, warning: float, critical: float) -> Check:
+    data_opcache = data_json['ocs']['data']['server']['php']['opcache']
+    opcache_full = data_opcache['cache_full'] == 'True'
+    cache_max = data_opcache['interned_string_usage']['buffer_size']
+    cache_used = data_opcache['interned_string_usage']['used_memory']
+    cache_free = data_opcache['interned_string_usage']['free_memory']
+
+    cache_free / cache_max > 
+
+def check_cache_full(data_json) -> bool:
+    return data_json['ocs']['data']['server']['php']['opcache']['cache_full'] == 'True'
+
+def get_app_updates(data_json) -> list[str]:
+    return data_json['ocs']['data']['nextcloud']['system']['apps']['app_updates']
+
+def get_active_users(data_json) -> dict[str,int]:
+    '''The keys in the dictionary are "last5minutes", "last1hour" and "last24hours"'''
+    return data_json['ocs']['data']['activeUsers']
+
+if __name__ == "__main__":
+    # Fail check?
+    data_json = requests.get('https://nextcloud.my.cum.re/ocs/v2.php/apps/serverinfo/api/v1/info?format=json', headers ={'NC-Token': ''}).json()
+    print(check_cache_full(data_json))
+    print(get_app_updates(data_json))
+    print(get_active_users(data_json))
+
+#print(response_raw.json()['ocs']['data']['server']['php']['opcache']['cache_full'])
+#print(response_raw.json()['ocs']['data']['nextcloud']['system']['apps']['app_updates'])
+#print(response_raw.json()['ocs']['data']['activeUsers'])
