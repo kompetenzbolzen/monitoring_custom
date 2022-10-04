@@ -5,34 +5,45 @@ import argparse
 
 status = {'OK': 0, 'WARNING': 1, 'CRITICAL': 2, 'UNKNOWN': 3}
 
+class APIError(Exception):
+    pass
+
 class Check:
-    def __init__(self, status: str, description: str, data: tuple[str,str,str] | None):
+    def __init__(self, status: str, description: str, data: dict[str,str] | None):
         self.status = status
         self.description = description
         self.data = data
-
     def format(self) -> str:
         if self.data != None:
-            return f"{self.status} - {self.description} | {';'.join(self.data)}"
+            return f"{self.status} - {self.description} | {' '.join(map(lambda t: f'{t[0]}={t[1]}', dict_to_list(self.data)))}"
         else:
             return f"{self.status} - {self.description}"
     def exit(self):
         print(self.format())
         exit(status[self.status])
 
+def dict_to_list(dic):
+    go = []
+    for key,val in dic:
+        go.append((key,val))
+    return go
+
 parser = argparse.ArgumentParser(description='Check nextcloud status via api')
+parser.add_argument('-t', dest='token', action='store', type=str, required=True)
 parser.add_argument('-u', dest='max_conns', action='store', type=int, default=None, nargs=2)
 parser.add_argument('-c', dest='opcache', action='store', type=float, default=None, nargs=2)
 parser.add_argument('-a', dest='updates', action='store_true', help='check for app updates')
-args=parser.parse_args()
+args= parser.parse_args()
 
 def check_interned_strings_cache(data_json, warning: float, critical: float) -> Check:
     data_opcache = data_json['ocs']['data']['server']['php']['opcache']
     cache_max = data_opcache['interned_strings_usage']['buffer_size']
     cache_used = data_opcache['interned_strings_usage']['used_memory'] / cache_max
-    data = map('{:.2f}'.format, (cache_used, warning, critical))
+    data = zip(["used","warning","critical"],map('{:.2f}'.format, (cache_used, warning, critical)))
     if cache_used >= critical:
-        return Check('CRITICAL',"The OPcache interned strings buffer is full.", data)
+        msg = "The OPcache interned strings buffer is full." if critical == 1 \
+            else f"OPcache interned strings buffer is to {cache_used:.0%} filled. " + f"This should not be more than {critical:.0%}!"
+        return Check('CRITICAL', msg, data)
     if cache_used >= warning:
         return Check('WARNING', f"OPcache interned strings buffer is to {cache_used:.0%} filled. " +
             f"This should not be more than {warning:.0%}!", data)
@@ -47,20 +58,20 @@ def check_activer_users(data_json, warning: int, critical: int) -> Check:
     else:
         status = 'OK'
     return Check( status, f'{active_users} {"users were" if active_users != 1 else "user was"} active in the last 5 minutes.'
-                , map(str, (active_users,warning,critical)))
+                , zip(["active_users","warning","critical"], map(str, (active_users,warning,critical))))
 
 def check_app_updates(data_json) -> Check:
     updates = data_json['ocs']['data']['nextcloud']['system']['apps']['app_updates']
     if updates != []:
-        return Check('WARNING', f'The following apps can be updates: {" ".join(updates)}.', None)
+        return Check('WARNING', f'The following apps can be updated: {" ".join(updates)}.', None)
     else:
         return Check('OK', 'No app updates were found.', None)
 
 try:
     data_json = requests.get('https://nextcloud.my.cum.re/ocs/v2.php/apps/serverinfo/api/v1/info?format=json'
-                             , headers={'NC-Token': ''}).json() #TODO Savely store secret
+                             , headers={'NC-Token': args.token}).json()
     if data_json['ocs']['meta']['status'] == 'failure':
-        raise Exception('API call failed!')
+        raise APIError('API call failed!')
     if args.updates:
         check_app_updates(data_json).exit()
     if args.max_conns != None:
@@ -69,6 +80,7 @@ try:
     if args.opcache != None:
         warning, critical = args.opcache
         check_interned_strings_cache(data_json, warning, critical).exit()
-except Exception as ex:
-    #TODO Define own execption, we dont want to leak data!
-    Check('UNKNOWN', f'A python runtime execption occured: {ex}', None).exit()
+except APIError as ex:
+    Check('UNKNOWN', str(ex), None).exit()
+except KeyError as ex:
+    Check('UNKNOWN', f'The key {ex} could not be found. Did the API change?', None).exit()
