@@ -15,7 +15,8 @@ class Check:
         self.data = data
     def format(self) -> str:
         if self.data != None:
-            return f"{self.status} - {self.description} | {' '.join(map(lambda t: f'{t[0]}={t[1]}', dict_to_list(self.data)))}"
+            formatted_data: str = ' '.join(map(lambda t: f'{t[0]}={t[1]}', dict_to_list(self.data)))
+            return f"{self.status} - {self.description} | {formatted_data}"
         else:
             return f"{self.status} - {self.description}"
     def exit(self):
@@ -23,10 +24,7 @@ class Check:
         exit(status[self.status])
 
 def dict_to_list(dic):
-    go = []
-    for key,val in dic:
-        go.append((key,val))
-    return go
+    return [(k, v) for k,v in dic.items()]
 
 parser = argparse.ArgumentParser(description='Check nextcloud status via api')
 parser.add_argument('-t', dest='token', action='store', type=str, required=True)
@@ -39,7 +37,7 @@ def check_interned_strings_cache(data_json, warning: float, critical: float) -> 
     data_opcache = data_json['ocs']['data']['server']['php']['opcache']
     cache_max = data_opcache['interned_strings_usage']['buffer_size']
     cache_used = data_opcache['interned_strings_usage']['used_memory'] / cache_max
-    data = zip(["used","warning","critical"],map('{:.2f}'.format, (cache_used, warning, critical)))
+    data = {'internd_string_cache' : f'{cache_used:.0%};{warning*100:.0f};{critical*100:.0f}'}
     if cache_used >= critical:
         msg = "The OPcache interned strings buffer is full." if critical == 1 \
             else f"OPcache interned strings buffer is to {cache_used:.0%} filled. " + f"This should not be more than {critical:.0%}!"
@@ -57,8 +55,8 @@ def check_activer_users(data_json, warning: int, critical: int) -> Check:
         status = 'WARNING'
     else:
         status = 'OK'
-    return Check( status, f'{active_users} {"users were" if active_users != 1 else "user was"} active in the last 5 minutes.'
-                , zip(["active_users","warning","critical"], map(str, (active_users,warning,critical))))
+    data = {'active_users' : f'{active_users};{warning};{critical}'}
+    return Check( status, f'{active_users} {"users were" if active_users != 1 else "user was"} active in the last 5 minutes.', data)
 
 def check_app_updates(data_json) -> Check:
     updates = data_json['ocs']['data']['nextcloud']['system']['apps']['app_updates']
