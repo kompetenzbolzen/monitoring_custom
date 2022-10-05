@@ -28,6 +28,7 @@ def dict_to_list(dic):
 
 parser = argparse.ArgumentParser(description='Check nextcloud status via api')
 parser.add_argument('-t', dest='token', action='store', type=str, required=True)
+parser.add_argument('--url', dest='url', action='store', type=str, required=True)
 parser.add_argument('-u', dest='max_conns', action='store', type=int, default=None, nargs=2)
 parser.add_argument('-c', dest='opcache', action='store', type=float, default=None, nargs=2)
 parser.add_argument('-a', dest='updates', action='store_true', help='check for app updates')
@@ -66,7 +67,7 @@ def check_app_updates(data_json) -> Check:
         return Check('OK', 'No app updates were found.', None)
 
 try:
-    data_json = requests.get('https://nextcloud.my.cum.re/ocs/v2.php/apps/serverinfo/api/v1/info?format=json'
+    data_json = requests.get(args.url + '?format=json'
                              , headers={'NC-Token': args.token}).json()
     if data_json['ocs']['meta']['status'] == 'failure':
         raise APIError('API call failed!')
