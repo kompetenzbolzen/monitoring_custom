@@ -29,11 +29,13 @@ def dict_to_list(dic):
 parser = argparse.ArgumentParser(description='Check nextcloud status via api')
 parser.add_argument('-t', dest='token', action='store', type=str, required=True)
 parser.add_argument('-H', dest='hostname', action='store', type=str, required=True)
-parser.add_argument('-u', dest='max_conns', action='store', type=int, default=None, nargs=2)
-parser.add_argument('-c', dest='opcache', action='store', type=float, default=None, nargs=2)
-parser.add_argument('-a', dest='updates', action='store_true', help='check for app updates')
-args= parser.parse_args()
+parser.add_argument('-C', dest='check', choices=['apps','cache','users'], required=True) #TODO is there a naming convention?
+parser.add_argument('-w', dest='warning', action='store', type=str, default=None)
+parser.add_argument('-c', dest='critical', action='store', type=str, default=None)
+args = parser.parse_args()
 
+#TODO: Looks like I'm checking the wrong cache value, the nextcloud does not give a warning when the interned strings cache
+#      is over 95% filled
 def check_interned_strings_cache(data_json, warning: float, critical: float) -> Check:
     data_opcache = data_json['ocs']['data']['server']['php']['opcache']
     cache_max = data_opcache['interned_strings_usage']['buffer_size']
@@ -71,14 +73,21 @@ try:
                              , headers={'NC-Token': args.token, 'host': args.hostname}).json()
     if data_json['ocs']['meta']['status'] == 'failure':
         raise APIError('API call failed!')
-    if args.updates:
+
+    if args.check == 'apps':
         check_app_updates(data_json).exit()
-    if args.max_conns != None:
-        warning, critical = args.max_conns
-        check_activer_users(data_json, warning, critical).exit()
-    if args.opcache != None:
-        warning, critical = args.opcache
+    elif args.check == 'cache':
+        if args.warning == None or args.critical == None:
+            print('Wrong usage! When using the cache check, provide warning and critical')
+            exit(1)
+        warning, critical = map(float, (args.warning, args.critical))
         check_interned_strings_cache(data_json, warning, critical).exit()
+    elif args.check == 'users':
+        if args.warning == None or args.critical == None:
+            print('Wrong usage! When using the users check, provide warning and critical')
+            exit(1)
+        warning, critical = map(int, (args.warning, args.critical))
+        check_activer_users(data_json, warning, critical).exit()
 except APIError as ex:
     Check('UNKNOWN', str(ex), None).exit()
 except KeyError as ex:
