@@ -1,0 +1,13 @@
+#!/bin/bash
+
+# Wait a random amount of seconds between 0 and $1.
+# Used for SSH connections to not DOS servers.
+#
+# USAGE: wait_random MAX_TIME COMMAND ARGS ...
+
+MAXTIME="$1"
+shift
+
+sleep $((RANDOM % MAXTIME))
+
+exec "$@"
