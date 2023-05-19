@@ -1,0 +1,52 @@
+#!/usr/bin/env python3
+
+import re
+import subprocess
+import sys
+
+STATUS = ['OK', 'WARNING', 'CRITICAL', 'UNKNOWN']
+
+def nagios_return(status: int, message: str, perfdata: dict = {}):
+    perfdata_str = ''
+    for data in perfdata:
+        perfdata_str += f' {data}={perfdata[data]}'
+
+    print(f'{STATUS[status]}: {message} | {perfdata_str}')
+    exit(status)
+
+def parse_data(data):
+    parts = re.split(r'(?:\n|^)\s*(\w*):\s*', data.strip(), re.MULTILINE)[1:]
+    parsed = dict(zip(parts[::2], parts[1::2]))
+    return {
+        **parsed,
+        'config': parse_config(parsed.get('config', ''))
+    }
+
+
+def parse_config(data):
+    lines = [v.strip().split() for v in data.splitlines() if v.strip()]
+    if lines:
+        return [
+            dict(zip(lines[0], v))
+            for v in lines[1:]
+        ]
+    return []
+
+
+if len(sys.argv) != 2:
+    nagios_return(3, 'Invalid arguments')
+
+zpool = sys.argv[1]
+
+data = {}
+
+try:
+    ret = subprocess.run(['zpool', 'status', zpool], capture_output=True)
+    data = parse_data(ret.stdout.decode('ascii'))
+except:
+    nagios_return(3, f'{zpool}: Command execution failed')
+
+if data['state'] != 'ONLINE':
+    nagios_return(2, f'{zpool} is {data["state"]}')
+
+nagios_return(0, f'{zpool} is {data["state"]}')
